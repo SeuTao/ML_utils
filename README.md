@@ -1,16 +1,5 @@
-# クマさんの道具箱
-
-```
-　 　 　┼╂┼
-　 　 ∩＿┃＿∩
-    |ノ      ヽ
-   /   ●    ● |                 機械学習業務やコンペでちょっと役に立つかもよ
-  |     (_●_) ミ                自分用に作ったので説明は少なめですm(._.)m
- 彡､     |∪|  ､｀＼
-/ ＿＿   ヽノ /´>  )
-(＿＿＿）    / (_／
-```
-
+# ML Toolbox
+This repo is fork from [kuma_utils](https://github.com/analokmaus/kuma_utils).
 
 # 中身
 ```
