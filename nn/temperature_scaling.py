@@ -7,7 +7,6 @@ from torch import nn, optim
 from torch.nn import functional as F
 from sklearn.calibration import calibration_curve
 
-
 class TemperatureScaler(nn.Module):
 
     def __init__(self, model):

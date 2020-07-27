@@ -1,20 +1,10 @@
-import os
 import re
-import sys
 import time
-from pathlib import Path
-from tqdm import tqdm
-from collections import defaultdict
-from copy import copy, deepcopy
+from copy import deepcopy
 
-import numpy as np
-import pandas as pd
-
-import torch
-import torch.utils.data as D
 from .datasets import *
 from .snapshot import *
-from .logger import *
+from log.logger import *
 from .temperature_scaling import *
 from .fp16util import network_to_half
 

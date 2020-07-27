@@ -1,6 +1,5 @@
 import torch
 
-
 def scan_requires_grad(model):
     frozen = 0
     unfrozen = 0
@@ -10,7 +9,6 @@ def scan_requires_grad(model):
         else:
             frozen += 1
     return frozen, unfrozen
-
 
 def set_requires_grad(model, requires_grad=True, verbose=True):
     for i, param in enumerate(model.parameters()):

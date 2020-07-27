@@ -4,6 +4,7 @@ import time
 import datetime
 import argparse
 import re
+
 from pathlib import Path
 from tqdm import tqdm
 from copy import deepcopy, copy
@@ -21,8 +22,8 @@ import seaborn as sns
 from scipy.stats import ks_2samp
 from sklearn.calibration import calibration_curve
 
-from .preprocessing import SingleCatEncoder, CatEncoder
-from .common import KumaNumpy as kn
+from preprocessing import SingleCatEncoder, CatEncoder
+from common import KumaNumpy as kn
 
 try:
     import japanize_matplotlib

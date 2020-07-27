@@ -2,7 +2,6 @@ import torch
 from pathlib import Path
 import os
 
-
 def get_latest_sanpshot(dir, keyword=None):
     if isinstance(dir, str):
         dir = Path(dir)
