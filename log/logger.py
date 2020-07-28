@@ -7,7 +7,6 @@ class Logger(object):
     def __init__(self, log_dir, neptune_dict = None):
         """Create a summary writer logging to log_dir."""
         self.writer = tf.compat.v1.summary.FileWriter(log_dir)
-
         self.neptune_dict = neptune_dict
         if neptune_dict is not None:
             # neptune.init('seutao/sandbox')
@@ -20,7 +19,7 @@ class Logger(object):
     def scalar_summary(self, tag, value, step):
         """Log a scalar variable."""
         summary = tf.compat.v1.Summary(
-            value=[tf.compat.v1.Summary.Value(tag=tag, simple_value=value)])
+                  value=[tf.compat.v1.Summary.Value(tag=tag, simple_value=value)])
         self.writer.add_summary(summary, step)
 
         if self.neptune_dict is not None:
@@ -37,7 +36,8 @@ class Logger(object):
                 neptune.log_metric(tag, value, timestamp=step)
 
 class DummyLogger:
-    def __init__(self, log_dir):
+    def __init__(self, log_dir,neptune_dict = None):
+        self.neptune_dict = neptune_dict
         pass
 
     def scalar_summary(self, tag, value, step):

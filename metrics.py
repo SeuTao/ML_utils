@@ -14,7 +14,7 @@ from numba import jit
 import pandas as pd
 
 from sklearn.metrics import roc_auc_score, confusion_matrix, mean_squared_error
-from .preprocessing import DistTransformer
+from preprocessing import DistTransformer
 
 
 class MetricTemplate:

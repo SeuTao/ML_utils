@@ -1,6 +1,7 @@
 import re
 import time
 from copy import deepcopy
+from tqdm import tqdm
 
 from .datasets import *
 from .snapshot import *
@@ -26,7 +27,6 @@ try:
 except ModuleNotFoundError:
     print('nvidia apex not found.')
     APEX_FLAG = False
-        
 
 '''
 Stopper
@@ -262,7 +262,7 @@ class TorchTrainer:
         target = []
 
         self.model.train()
-        for batch_i, inputs in enumerate(loader):
+        for batch_i, inputs in enumerate(tqdm(loader)):
             batches_done = len(loader) * self.current_epoch + batch_i
 
             X, y = inputs[0], inputs[1]
@@ -341,7 +341,7 @@ class TorchTrainer:
 
         self.model.eval()
         with torch.no_grad():
-            for inputs in loader:
+            for inputs in tqdm(loader):
                 X, y = inputs[0], inputs[1]
                 X = X.to(self.device)
                 y = y.to(self.device)
@@ -397,7 +397,6 @@ class TorchTrainer:
                 prediction.append(_y.detach())
         
         prediction = torch.cat(prediction).cpu().numpy()
-
         if path is not None:
             np.save(path, prediction)
 
@@ -406,7 +405,12 @@ class TorchTrainer:
 
         return prediction
 
-    def print_info(self, info_items, info_seps, info):
+    def print_log(self, log_txt, logger):
+        print(log_txt)
+        if logger.neptune_dict is not None:
+            neptune.log_text('log', log_txt)
+
+    def print_info(self, info_items, info_seps, info, logger):
         log_str = ''
         for sep, item in zip(info_seps, info_items):
             if item == 'time':
@@ -435,8 +439,10 @@ class TorchTrainer:
                     if counter > 0:
                         log_str += f'*({counter}/{patience})'
             log_str += sep
+
         if len(log_str) > 0:
-            print(f'[{self.serial}] {log_str}')
+            self.print_log(f'[{self.serial}] {log_str}',
+                           logger)
 
     def fit(self,
             # Essential
@@ -496,8 +502,9 @@ class TorchTrainer:
                 self.stopper, self.event, device=self.device)
             self.current_epoch = load_epoch(snapshot_path)
             if verbose:
-                print(
-                    f'[{self.serial}] {snapshot_path} is loaded. Continuing from epoch {self.current_epoch}.')
+                log_txt = f'[{self.serial}] {snapshot_path} is loaded. Continuing from epoch {self.current_epoch}.'
+                self.print_log(log_txt, logger)
+
         if self.is_fp16:
             self.model_to_fp16()
         if multi_gpu:
@@ -536,14 +543,16 @@ class TorchTrainer:
                         'data': 'Trn',
                         'loss': loss_train,
                         'metric': metric_train, 
-                        'logmetrics': log_metrics_train
-                    })
+                        'logmetrics': log_metrics_train},
+                        logger)
 
                 if self.stopper.stop():
                     if verbose:
-                        print("[{}] Training stopped by overfit detector. ({}/{})".format(
-                            self.serial, self.current_epoch-self.stopper.state()[1]+1, self.max_epochs))
-                        print(f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}")
+                        self.print_log("[{}] Training stopped by overfit detector. ({}/{})".format(self.serial, self.current_epoch-self.stopper.state()[1]+1, self.max_epochs),
+                                        logger)
+                        self.print_log(f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}",
+                                        logger)
+
                     load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
                     if predict_valid:
                         self.oof = self.predict(
@@ -560,8 +569,8 @@ class TorchTrainer:
                     'data': 'Trn',
                     'loss': loss_train,
                     'metric': metric_train,
-                    'logmetrics': log_metrics_train
-                })
+                    'logmetrics': log_metrics_train},
+                    logger)
 
             ### Validation
             if epoch % eval_interval == 0:
@@ -578,16 +587,17 @@ class TorchTrainer:
                         'data': 'Val',
                         'loss': loss_valid,
                         'metric': metric_valid,
-                        'logmetrics': log_metrics_valid
-                    })
+                        'logmetrics': log_metrics_valid},
+                        logger)
 
             # Stopped by overfit detector
             if self.stopper.stop():
                 if verbose:
-                    print("[{}] Training stopped by overfit detector. ({}/{})".format(
-                        self.serial, self.current_epoch-self.stopper.state()[1]+1, self.max_epochs))
-                    print(
-                        f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}")
+                    self.print_log("[{}] Training stopped by overfit detector. ({}/{})".format(self.serial, self.current_epoch-self.stopper.state()[1]+1, self.max_epochs),
+                                   logger)
+                    self.print_log(f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}",
+                                   logger)
+
                 load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
 
                 if calibrate_model:
@@ -606,13 +616,15 @@ class TorchTrainer:
 
         else:  # Not stopped by overfit detector
             if verbose:
-                print(
-                    f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}")
+                self.print_log(f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}",
+                               logger)
+
             load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
 
             if calibrate_model:
                 if loader_valid is None:
-                    print('loader_valid is necessary for calibration.')
+                    self.print_log('loader_valid is necessary for calibration.',
+                                   logger)
                 else:
                     self.calibrate_model(loader_valid)
 
@@ -632,6 +644,7 @@ class TorchTrainer:
         self.model.set_temperature(loader)
 
 
+#TODO
 '''
 Cross Validation for Tabular data
 '''
