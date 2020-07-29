@@ -20,7 +20,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, PowerTransformer
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
-from common import KumaNumpy as kn
+from .common import KumaNumpy as kn
 
 
 '''

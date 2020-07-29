@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from .datasets import *
 from .snapshot import *
-from log.logger import *
+from ML_utils.log.logger import *
 from .temperature_scaling import *
 from .fp16util import network_to_half
 
