@@ -14,7 +14,7 @@ class Logger(object):
             # Create experiment with defined parameters
             neptune.create_experiment(name=neptune_dict['name'],
                                       params=neptune_dict['params'],
-                                      upload_source_files=neptune_dict['upload_source_files'])
+                                      upload_source_files = neptune_dict['upload_source_files'])
 
     def scalar_summary(self, tag, value, step):
         """Log a scalar variable."""

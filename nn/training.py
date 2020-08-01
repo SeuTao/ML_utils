@@ -381,22 +381,29 @@ class TorchTrainer:
         return loss_total, metric_total, log_metrics_total
 
     def predict(self, loader, path=None, test_time_augmentations=1, verbose=True):
+
         if loader is None:
             print(f'[{self.serial}] No data to predict. Skipping prediction...')
             return None
-        prediction = []
-
         self.model.eval()
-        with torch.no_grad():
-            for batch_i, inputs in enumerate(loader):
-                X = inputs[0]
-                X = X.to(self.device)
-                _y = self.model(X)
-                if self.is_fp16:
-                    _y = _y.float()
-                prediction.append(_y.detach())
-        
-        prediction = torch.cat(prediction).cpu().numpy()
+
+        predictions = []
+        for i in range(test_time_augmentations):
+            prediction = []
+            with torch.no_grad():
+                for batch_i, inputs in enumerate(tqdm(loader)):
+                    X = inputs[0]
+                    X = X.to(self.device)
+                    _y = self.model(X)
+                    if self.is_fp16:
+                        _y = _y.float()
+                    prediction.append(_y.detach())
+
+            prediction = torch.cat(prediction).cpu().numpy()
+            predictions.append(prediction)
+
+        prediction = np.mean(predictions, axis=0)
+
         if path is not None:
             np.save(path, prediction)
 
@@ -638,6 +645,76 @@ class TorchTrainer:
             if predict_test:
                 self.pred = self.predict(
                     loader_test, test_time_augmentations=test_time_augmentations, verbose=verbose)
+
+    def infer(self,
+            # Essential
+            criterion, optimizer, scheduler,
+            loader, num_epochs, loader_valid=None, loader_test=None,
+            snapshot_path=None, resume=False,  # Snapshot
+            multi_gpu=True, grad_accumulations=1, calibrate_model=False,  # Train
+            eval_metric=None, eval_interval=1, log_metrics=[],  # Evaluation
+            test_time_augmentations=1, predict_valid=True, predict_test=True,  # Prediction
+            event=DummyEvent(), stopper=DummyStopper(),  # Train add-ons
+            # Logger and info
+            logger=DummyLogger(''), logger_interval=1,
+            info_train=True, info_valid=True, info_interval=1, round_float=6,
+            info_format='epoch time data loss metric logmetrics earlystopping', verbose=True):
+
+        if eval_metric is None:
+            eval_metric = lambda x, y: -1 * criterion(x, y).item()
+            print(f'[{self.serial}] eval_metric is not set. Inversed criterion will be used instead.')
+
+        self.criterion = criterion
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.eval_metric = eval_metric
+        self.log_metrics = log_metrics
+        self.logger = logger
+        self.event = deepcopy(event)
+        self.stopper = deepcopy(stopper)
+        self.current_epoch = 0
+
+        self.log = {
+            'train': {'loss': [], 'metric': []},
+            'valid': {'loss': [], 'metric': []} }
+
+        self.round_float = round_float
+        if snapshot_path is None:
+            snapshot_path = Path().cwd()
+        if not isinstance(snapshot_path, Path):
+            snapshot_path = Path(snapshot_path)
+        if len(snapshot_path.suffix) > 0:  # Is file
+            self.root_path = snapshot_path.parent
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+        else:  # Is dir
+            self.root_path = snapshot_path
+            snapshot_path = snapshot_path / 'snapshot.pt'
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not isinstance(self.log_metrics, (list, tuple, set)):
+            self.log_metrics = [self.log_metrics]
+
+        self.model.to(self.device)
+
+        if self.is_fp16:
+            self.model_to_fp16()
+        if multi_gpu:
+            self.model_to_parallel()
+
+        self.max_epochs = self.current_epoch + num_epochs
+
+        if predict_valid:
+            if loader_valid is None:
+                self.oof = self.predict(
+                    loader, test_time_augmentations=test_time_augmentations, verbose=verbose)
+            else:
+                self.oof = self.predict(
+                    loader_valid, test_time_augmentations=test_time_augmentations, verbose=verbose)
+
+        if predict_test:
+            self.pred = self.predict(
+                loader_test, test_time_augmentations=test_time_augmentations, verbose=verbose)
+
     
     def calibrate_model(self, loader):
         self.model = TemperatureScaler(self.model).to(self.device)
