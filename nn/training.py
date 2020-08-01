@@ -548,6 +548,7 @@ class TorchTrainer:
                 if info_train and epoch % info_interval == 0:
                     self.print_info(info_items, info_seps, {
                         'data': 'Trn',
+                        'lr': optimizer.state_dict()['param_groups'][0]['lr'],
                         'loss': loss_train,
                         'metric': metric_train, 
                         'logmetrics': log_metrics_train},
@@ -574,6 +575,7 @@ class TorchTrainer:
             if info_train and epoch % info_interval == 0:
                 self.print_info(info_items, info_seps, {
                     'data': 'Trn',
+                    'lr': optimizer.state_dict()['param_groups'][0]['lr'],
                     'loss': loss_train,
                     'metric': metric_train,
                     'logmetrics': log_metrics_train},

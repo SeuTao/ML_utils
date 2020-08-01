@@ -151,17 +151,24 @@ class Accuracy(MetricTemplate):
 
     def _test(self, target, approx):
         assert(len(target) == len(approx))
+
         target = np.asarray(target, dtype=int)
         approx = np.asarray(approx, dtype=float)
+
         if len(approx.shape) == 1:
             approx = approx
         elif approx.shape[1] == 1:
             approx = np.squeeze(approx)
         elif approx.shape[1] >= 2:
             approx = np.argmax(approx, axis=1)
-        approx = approx.round().astype(int)
-        return np.mean((target == approx).astype(int))
 
+        approx = approx.round().astype(int)
+
+        target = target.reshape([-1])
+        approx = approx.reshape([-1])
+        assert(target.shape == approx.shape)
+
+        return np.mean((target == approx).astype(int))
 
 class QWK(MetricTemplate):
     '''
