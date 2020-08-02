@@ -119,7 +119,17 @@ class RMSE(MetricTemplate):
     Root mean square error
     '''
     def _test(self, target, approx):
-        return np.sqrt(mean_squared_error(target, approx))
+        return -np.sqrt(mean_squared_error(target, approx))
+
+import scipy.stats
+class R(MetricTemplate):
+    '''
+    Root mean square error
+    '''
+    def _test(self, target, approx):
+        # print(approx.shape)
+        # print(target.shape)
+        return scipy.stats.pearsonr(approx.reshape([-1]), target.reshape([-1]))[0]
 
 
 class AUC(MetricTemplate):
