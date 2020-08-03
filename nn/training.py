@@ -333,37 +333,41 @@ class TorchTrainer:
         
         return loss_total, metric_total, log_metrics_total
 
-    def valid_loop(self, loader, grad_accumulations=1, logger_interval=1):
+    def valid_loop(self, loader, grad_accumulations=1, logger_interval=1, test_time_augmentations=1, is_oof_predict = False):
         loss_total = 0.0
         total_batch = len(loader.dataset) / loader.batch_size
-        approx = []
-        target = []
+        approxs = []
 
         self.model.eval()
         with torch.no_grad():
-            for inputs in tqdm(loader):
-                X, y = inputs[0], inputs[1]
-                X = X.to(self.device)
-                y = y.to(self.device)
-                if len(inputs) == 3:
-                    z = inputs[2]
-                    z = z.to(self.device)
-              
-                _y = self.model(X)
-                if self.is_fp16:
-                    _y = _y.float()
-                approx.append(_y.clone().detach())
-                target.append(y.clone().detach())
-            
-                if len(inputs) == 3:
-                    loss = self.criterion(_y, y, z)
-                elif len(inputs) == 2:
-                    loss = self.criterion(_y, y)
+            for tta_i in range(test_time_augmentations):
+                approx = []
+                target = []
+                for inputs in tqdm(loader):
+                    X, y = inputs[0], inputs[1]
+                    X = X.to(self.device)
+                    y = y.to(self.device)
+                    if len(inputs) == 3:
+                        z = inputs[2]
+                        z = z.to(self.device)
 
-                batch_weight = len(X) / loader.batch_size
-                loss_total += loss.item() / total_batch * batch_weight
+                    _y = self.model(X)
+                    if self.is_fp16:
+                        _y = _y.float()
+                    approx.append(_y.clone().detach())
+                    target.append(y.clone().detach())
 
-        approx = torch.cat(approx).cpu()
+                    if len(inputs) == 3:
+                        loss = self.criterion(_y, y, z)
+                    elif len(inputs) == 2:
+                        loss = self.criterion(_y, y)
+
+                    batch_weight = len(X) / loader.batch_size
+                    loss_total += loss.item() / total_batch * batch_weight
+                approxs.append(torch.cat(approx).unsqueeze(0).cpu())
+
+        approxs = torch.cat(approxs,dim=0)
+        approx = torch.mean(approxs, dim=0)
         target = torch.cat(target).cpu()
         metric_total = self.eval_metric(approx, target)
         log_metrics_total = []
@@ -377,6 +381,11 @@ class TorchTrainer:
         self.logger.list_of_scalars_summary(log_valid, self.current_epoch)
         self.log['valid']['loss'].append(loss_total)
         self.log['valid']['metric'].append(metric_total)
+
+        if is_oof_predict:
+            print(log_valid)
+            print(log_metrics_total)
+            return  approx
 
         return loss_total, metric_total, log_metrics_total
 
@@ -423,6 +432,8 @@ class TorchTrainer:
             if item == 'time':
                 current_time = time.strftime('%H:%M:%S', time.gmtime())
                 log_str += current_time
+            elif item == 'lr':
+                log_str += 'lr='+str(info[item])[:7]
             elif item == 'data':
                 log_str += info[item]
             elif item in ['loss', 'metric']:
@@ -463,7 +474,7 @@ class TorchTrainer:
             # Logger and info
             logger=DummyLogger(''), logger_interval=1, 
             info_train=True, info_valid=True, info_interval=1, round_float=6,
-            info_format='epoch time data loss metric logmetrics earlystopping', verbose=True):
+            info_format='epoch time data lr loss metric logmetrics earlystopping', verbose=True):
 
         if eval_metric is None:
             eval_metric = lambda x, y: -1 * criterion(x, y).item()
@@ -485,6 +496,7 @@ class TorchTrainer:
         }
         info_items = re.split(r'[^a-z]+', info_format)
         info_seps = re.split(r'[a-z]+', info_format)
+
         self.round_float = round_float
 
         if snapshot_path is None:
@@ -594,6 +606,7 @@ class TorchTrainer:
                 if info_valid and epoch % info_interval == 0:
                     self.print_info(info_items, info_seps, {
                         'data': 'Val',
+                        'lr': optimizer.state_dict()['param_groups'][0]['lr'],
                         'loss': loss_valid,
                         'metric': metric_valid,
                         'logmetrics': log_metrics_valid},
@@ -705,13 +718,15 @@ class TorchTrainer:
 
         self.max_epochs = self.current_epoch + num_epochs
 
+        load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
+
         if predict_valid:
             if loader_valid is None:
-                self.oof = self.predict(
-                    loader, test_time_augmentations=test_time_augmentations, verbose=verbose)
+                self.oof = self.valid_loop(
+                    loader, test_time_augmentations=test_time_augmentations, is_oof_predict=True)
             else:
-                self.oof = self.predict(
-                    loader_valid, test_time_augmentations=test_time_augmentations, verbose=verbose)
+                self.oof = self.valid_loop(
+                    loader_valid, test_time_augmentations=test_time_augmentations, is_oof_predict=True)
 
         if predict_test:
             self.pred = self.predict(
