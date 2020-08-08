@@ -213,7 +213,7 @@ class TorchTrainer:
 
     def __init__(self, 
                  model, device=None, serial='Trainer', 
-                 fp16=False, xla=False):
+                 fp16=False, xla=False, is_tqdm = False):
 
         if device is None:
             if xla:
@@ -226,6 +226,7 @@ class TorchTrainer:
         self.serial = serial
         self.is_fp16 = fp16 # Automatically use apex if available
         self.is_xla = xla
+        self.is_tqdm = is_tqdm
         self.apex_opt_level = 'O1'
         self.model = model
         print(f'[{self.serial}] On {self.device}.')
@@ -262,7 +263,10 @@ class TorchTrainer:
         target = []
 
         self.model.train()
-        for batch_i, inputs in enumerate(tqdm(loader)):
+        if self.is_tqdm:
+            loader = tqdm(loader)
+
+        for batch_i, inputs in enumerate(loader):
             batches_done = len(loader) * self.current_epoch + batch_i
 
             X, y = inputs[0], inputs[1]
@@ -339,11 +343,15 @@ class TorchTrainer:
         approxs = []
 
         self.model.eval()
+
+        if self.is_tqdm:
+            loader = tqdm(loader)
+
         with torch.no_grad():
             for tta_i in range(test_time_augmentations):
                 approx = []
                 target = []
-                for inputs in tqdm(loader):
+                for inputs in loader:
                     X, y = inputs[0], inputs[1]
                     X = X.to(self.device)
                     y = y.to(self.device)
@@ -385,7 +393,7 @@ class TorchTrainer:
         if is_oof_predict:
             print(log_valid)
             print(log_metrics_total)
-            return  approx
+            return approx, target
 
         return loss_total, metric_total, log_metrics_total
 
@@ -395,12 +403,14 @@ class TorchTrainer:
             print(f'[{self.serial}] No data to predict. Skipping prediction...')
             return None
         self.model.eval()
+        if self.is_tqdm:
+            loader = tqdm(loader)
 
         predictions = []
         for i in range(test_time_augmentations):
             prediction = []
             with torch.no_grad():
-                for batch_i, inputs in enumerate(tqdm(loader)):
+                for batch_i, inputs in enumerate(loader):
                     X = inputs[0]
                     X = X.to(self.device)
                     _y = self.model(X)
@@ -722,10 +732,10 @@ class TorchTrainer:
 
         if predict_valid:
             if loader_valid is None:
-                self.oof = self.valid_loop(
+                self.oof, self.target  = self.valid_loop(
                     loader, test_time_augmentations=test_time_augmentations, is_oof_predict=True)
             else:
-                self.oof = self.valid_loop(
+                self.oof, self.target = self.valid_loop(
                     loader_valid, test_time_augmentations=test_time_augmentations, is_oof_predict=True)
 
         if predict_test:

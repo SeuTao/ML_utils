@@ -51,6 +51,7 @@ def load_snapshots_to_model(
             model.module.load_state_dict(checkpoint['model'])
         else:
             model.load_state_dict(checkpoint['model'])
+
     if optimizer is not None:
         optimizer.load_state_dict(checkpoint['optimizer'])
     if scheduler is not None:
