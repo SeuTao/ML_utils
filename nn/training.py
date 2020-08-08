@@ -469,8 +469,9 @@ class TorchTrainer:
             log_str += sep
 
         if len(log_str) > 0:
-            self.print_log(f'[{self.serial}] {log_str}',
-                           logger)
+            self.print_log(f'[{self.serial}] {log_str}',logger)
+            logger.log_f.write(log_str+'\n')
+            logger.log_f.flush()
 
     def fit(self,
             # Essential
