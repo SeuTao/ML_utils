@@ -344,11 +344,14 @@ class TorchTrainer:
 
         self.model.eval()
 
+        batch_size = loader.batch_size
         if self.is_tqdm:
             loader = tqdm(loader)
 
         with torch.no_grad():
             for tta_i in range(test_time_augmentations):
+                # print(tta_i)
+
                 approx = []
                 target = []
                 for inputs in loader:
@@ -370,7 +373,7 @@ class TorchTrainer:
                     elif len(inputs) == 2:
                         loss = self.criterion(_y, y)
 
-                    batch_weight = len(X) / loader.batch_size
+                    batch_weight = len(X) / batch_size
                     loss_total += loss.item() / total_batch * batch_weight
                 approxs.append(torch.cat(approx).unsqueeze(0).cpu())
 
@@ -606,22 +609,27 @@ class TorchTrainer:
 
             ### Validation
             if epoch % eval_interval == 0:
-                loss_valid, metric_valid, log_metrics_valid = self.valid_loop(loader_valid, grad_accumulations, logger_interval)
+
+                metric_valid_list = []
+                for name, loader_valid_tmp in loader_valid:
+                    loss_valid, metric_valid, log_metrics_valid = self.valid_loop(loader_valid_tmp, grad_accumulations, logger_interval)
+
+                    if info_valid and epoch % info_interval == 0:
+                        self.print_info(info_items, info_seps, {
+                            'data': 'Val '+name,
+                            'lr': optimizer.state_dict()['param_groups'][0]['lr'],
+                            'loss': loss_valid,
+                            'metric': metric_valid,
+                            'logmetrics': log_metrics_valid},
+                             logger)
+
+                    metric_valid_list.append(metric_valid)
                 
-                early_stopping_target = metric_valid
+                early_stopping_target = metric_valid_list[0]
                 if self.stopper(early_stopping_target):  # score improved
                     save_snapshots(snapshot_path,
                                    self.current_epoch, self.model,
                                    self.optimizer, self.scheduler, self.stopper, self.event)
-
-                if info_valid and epoch % info_interval == 0:
-                    self.print_info(info_items, info_seps, {
-                        'data': 'Val',
-                        'lr': optimizer.state_dict()['param_groups'][0]['lr'],
-                        'loss': loss_valid,
-                        'metric': metric_valid,
-                        'logmetrics': log_metrics_valid},
-                        logger)
 
             # Stopped by overfit detector
             if self.stopper.stop():
@@ -641,7 +649,7 @@ class TorchTrainer:
 
                 if predict_valid:
                     self.oof = self.predict(
-                        loader_valid, test_time_augmentations=test_time_augmentations, verbose=verbose)
+                        loader_valid[0][0], test_time_augmentations=test_time_augmentations, verbose=verbose)
                 if predict_test:
                     self.pred = self.predict(
                         loader_test, test_time_augmentations=test_time_augmentations, verbose=verbose)
