@@ -649,7 +649,7 @@ class TorchTrainer:
 
                 if predict_valid:
                     self.oof = self.predict(
-                        loader_valid[0][0], test_time_augmentations=test_time_augmentations, verbose=verbose)
+                        loader_valid[0][1], test_time_augmentations=test_time_augmentations, verbose=verbose)
                 if predict_test:
                     self.pred = self.predict(
                         loader_test, test_time_augmentations=test_time_augmentations, verbose=verbose)
@@ -675,7 +675,7 @@ class TorchTrainer:
                         loader, test_time_augmentations=test_time_augmentations, verbose=verbose)
                 else:
                     self.oof = self.predict(
-                        loader_valid, test_time_augmentations=test_time_augmentations, verbose=verbose)
+                        loader_valid[0][1], test_time_augmentations=test_time_augmentations, verbose=verbose)
             if predict_test:
                 self.pred = self.predict(
                     loader_test, test_time_augmentations=test_time_augmentations, verbose=verbose)
