@@ -263,6 +263,8 @@ class TorchTrainer:
         target = []
 
         self.model.train()
+
+        batch_size = loader.batch_size
         if self.is_tqdm:
             loader = tqdm(loader)
 
@@ -316,7 +318,7 @@ class TorchTrainer:
                 ]
                 self.logger.list_of_scalars_summary(log_train_batch, batches_done)
 
-            batch_weight = len(X) / loader.batch_size
+            batch_weight = len(X) / batch_size
             loss_total += loss.item() / total_batch * batch_weight
             # metric_total += metric / total_batch * batch_weight
         
