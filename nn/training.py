@@ -465,8 +465,8 @@ class TorchTrainer:
             elif item == 'earlystopping':
                 if info['data'] == 'Trn':
                     continue
-                counter, patience = self.stopper.state()
-                best = self.stopper.score()
+                counter, patience = self.stopper[0].state()
+                best = self.stopper[0].score()
                 if best is not None:
                     log_str += f'best={best:.{self.round_float}f}'
                     if counter > 0:
@@ -481,7 +481,7 @@ class TorchTrainer:
     def fit(self,
             # Essential
             criterion, optimizer, scheduler, 
-            loader, num_epochs, loader_valid=None, loader_test=None,
+            loader, loader_list, num_epochs, loader_valid=None, loader_test=None,
             snapshot_path=None, resume=False,  # Snapshot
             multi_gpu=True, grad_accumulations=1, calibrate_model=False, # Train
             eval_metric=None, eval_interval=1, log_metrics=[], # Evaluation
@@ -503,7 +503,10 @@ class TorchTrainer:
         self.log_metrics = log_metrics
         self.logger = logger
         self.event = deepcopy(event)
-        self.stopper = deepcopy(stopper)
+        self.stopper = []
+        for i in range(len(loader_valid)):
+            self.stopper.append(deepcopy(stopper))
+        
         self.current_epoch = 0
 
         self.log = {
@@ -519,13 +522,14 @@ class TorchTrainer:
             snapshot_path = Path().cwd()
         if not isinstance(snapshot_path, Path):
             snapshot_path = Path(snapshot_path)
+
         if len(snapshot_path.suffix) > 0: # Is file
             self.root_path = snapshot_path.parent
             snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-        else: # Is dir
-            self.root_path = snapshot_path
-            snapshot_path = snapshot_path/'snapshot.pt'
-            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+        # else: # Is dir
+        #     self.root_path = snapshot_path
+        #     snapshot_path = snapshot_path/'snapshot.pt'
+        #     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
 
         if not isinstance(self.log_metrics, (list, tuple, set)):
             self.log_metrics = [self.log_metrics]
@@ -534,7 +538,7 @@ class TorchTrainer:
         if resume:
             load_snapshots_to_model(
                 snapshot_path, self.model, self.optimizer, self.scheduler, 
-                self.stopper, self.event, device=self.device)
+                self.stopper[0], self.event, device=self.device)
             self.current_epoch = load_epoch(snapshot_path)
             if verbose:
                 log_txt = f'[{self.serial}] {snapshot_path} is loaded. Continuing from epoch {self.current_epoch}.'
@@ -558,20 +562,21 @@ class TorchTrainer:
 
             ### Event
             event(**{'model': self.model, 'optimizer': self.optimizer, 'scheduler': self.scheduler,
-                     'stopper': self.stopper, 'criterion': self.criterion, 'eval_metric': self.eval_metric, 
+                     'stopper': self.stopper[0], 'criterion': self.criterion, 'eval_metric': self.eval_metric,
                      'epoch': epoch, 'global_epoch': self.current_epoch, 'log': self.log})
 
             ### Training
-            loss_train, metric_train, log_metrics_train = self.train_loop(loader, grad_accumulations, logger_interval)
+            for loader in loader_list:
+                loss_train, metric_train, log_metrics_train = self.train_loop(loader, grad_accumulations, logger_interval)
 
             ### No validation set
             if loader_valid is None:
                 early_stopping_target = metric_train
 
-                if self.stopper(early_stopping_target):  # score improved
+                if self.stopper[0](early_stopping_target):  # score improved
                     save_snapshots(snapshot_path, 
                                    self.current_epoch, self.model, 
-                                   self.optimizer, self.scheduler, self.stopper, self.event)
+                                   self.optimizer, self.scheduler, self.stopper[0], self.event)
                 
                 if info_train and epoch % info_interval == 0:
                     self.print_info(info_items, info_seps, {
@@ -582,11 +587,11 @@ class TorchTrainer:
                         'logmetrics': log_metrics_train},
                         logger)
 
-                if self.stopper.stop():
+                if self.stopper[0].stop():
                     if verbose:
-                        self.print_log("[{}] Training stopped by overfit detector. ({}/{})".format(self.serial, self.current_epoch-self.stopper.state()[1]+1, self.max_epochs),
+                        self.print_log("[{}] Training stopped by overfit detector. ({}/{})".format(self.serial, self.current_epoch-self.stopper[0].state()[1]+1, self.max_epochs),
                                         logger)
-                        self.print_log(f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}",
+                        self.print_log(f"[{self.serial}] Best score is {self.stopper[0].score():.{self.round_float}f}",
                                         logger)
 
                     load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
@@ -625,20 +630,27 @@ class TorchTrainer:
                             'logmetrics': log_metrics_valid},
                              logger)
 
-                    metric_valid_list.append(metric_valid)
-                
-                early_stopping_target = metric_valid_list[0]
-                if self.stopper(early_stopping_target):  # score improved
-                    save_snapshots(snapshot_path,
-                                   self.current_epoch, self.model,
-                                   self.optimizer, self.scheduler, self.stopper, self.event)
+                    metric_valid_list.append([name, metric_valid])
+
+                for i_ in range(len(metric_valid_list)):
+                    early_stopping_target = metric_valid_list[i_][1]
+                    name = metric_valid_list[i_][0]
+                    if self.stopper[i_](early_stopping_target):  # score improved
+                        save_snapshots(snapshot_path/f'{name}.pt'.replace(' ',''),
+                                       self.current_epoch, self.model,
+                                       self.optimizer, self.scheduler, self.stopper[i_], self.event)
+
+                        txt_path = snapshot_path/f'{name}.txt'.replace(' ','')
+                        f = open(txt_path,'a')
+                        f.write(f'{metric_valid_list[i_][0]} best metric {metric_valid_list[i_][1]} \n')
+                        f.close()
 
             # Stopped by overfit detector
-            if self.stopper.stop():
+            if self.stopper[0].stop():
                 if verbose:
-                    self.print_log("[{}] Training stopped by overfit detector. ({}/{})".format(self.serial, self.current_epoch-self.stopper.state()[1]+1, self.max_epochs),
+                    self.print_log("[{}] Training stopped by overfit detector. ({}/{})".format(self.serial, self.current_epoch-self.stopper[0].state()[1]+1, self.max_epochs),
                                    logger)
-                    self.print_log(f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}",
+                    self.print_log(f"[{self.serial}] Best score is {self.stopper[0].score():.{self.round_float}f}",
                                    logger)
 
                 load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
@@ -659,7 +671,7 @@ class TorchTrainer:
 
         else:  # Not stopped by overfit detector
             if verbose:
-                self.print_log(f"[{self.serial}] Best score is {self.stopper.score():.{self.round_float}f}",
+                self.print_log(f"[{self.serial}] Best score is {self.stopper[0].score():.{self.round_float}f}",
                                logger)
 
             load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
@@ -707,7 +719,7 @@ class TorchTrainer:
         self.log_metrics = log_metrics
         self.logger = logger
         self.event = deepcopy(event)
-        self.stopper = deepcopy(stopper)
+        self.stopper[0] = deepcopy(stopper)
         self.current_epoch = 0
 
         self.log = {
