@@ -636,13 +636,13 @@ class TorchTrainer:
                     early_stopping_target = metric_valid_list[i_][1]
                     name = metric_valid_list[i_][0]
                     if self.stopper[i_](early_stopping_target):  # score improved
-                        save_snapshots(snapshot_path/f'{name}.pt'.replace(' ',''),
+                        save_snapshots(snapshot_path/f'{name}_{epoch}.pt'.replace(' ',''),
                                        self.current_epoch, self.model,
                                        self.optimizer, self.scheduler, self.stopper[i_], self.event)
 
                         txt_path = snapshot_path/f'{name}.txt'.replace(' ','')
                         f = open(txt_path,'a')
-                        f.write(f'{metric_valid_list[i_][0]} best metric {metric_valid_list[i_][1]} \n')
+                        f.write(f'{metric_valid_list[i_][0]} best metric {metric_valid_list[i_][1]} epoch {epoch} \n')
                         f.close()
 
             # Stopped by overfit detector
@@ -719,7 +719,7 @@ class TorchTrainer:
         self.log_metrics = log_metrics
         self.logger = logger
         self.event = deepcopy(event)
-        self.stopper[0] = deepcopy(stopper)
+        self.stopper = deepcopy(stopper)
         self.current_epoch = 0
 
         self.log = {
