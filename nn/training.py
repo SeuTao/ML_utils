@@ -639,6 +639,9 @@ class TorchTrainer:
                         save_snapshots(snapshot_path/f'{name}_{epoch}.pt'.replace(' ',''),
                                        self.current_epoch, self.model,
                                        self.optimizer, self.scheduler, self.stopper[i_], self.event)
+                        save_snapshots(snapshot_path / f'{name}_best.pt'.replace(' ', ''),
+                                       self.current_epoch, self.model,
+                                       self.optimizer, self.scheduler, self.stopper[i_], self.event)
 
                         txt_path = snapshot_path/f'{name}.txt'.replace(' ','')
                         f = open(txt_path,'a')
