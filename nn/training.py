@@ -672,30 +672,30 @@ class TorchTrainer:
                         loader_test, test_time_augmentations=test_time_augmentations, verbose=verbose)
                 break
 
-        else:  # Not stopped by overfit detector
-            if verbose:
-                self.print_log(f"[{self.serial}] Best score is {self.stopper[0].score():.{self.round_float}f}",
-                               logger)
-
-            load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
-
-            if calibrate_model:
-                if loader_valid is None:
-                    self.print_log('loader_valid is necessary for calibration.',
-                                   logger)
-                else:
-                    self.calibrate_model(loader_valid)
-
-            if predict_valid:
-                if loader_valid is None:
-                    self.oof = self.predict(
-                        loader, test_time_augmentations=test_time_augmentations, verbose=verbose)
-                else:
-                    self.oof = self.predict(
-                        loader_valid[0][1], test_time_augmentations=test_time_augmentations, verbose=verbose)
-            if predict_test:
-                self.pred = self.predict(
-                    loader_test, test_time_augmentations=test_time_augmentations, verbose=verbose)
+        # else:  # Not stopped by overfit detector
+        #     if verbose:
+        #         self.print_log(f"[{self.serial}] Best score is {self.stopper[0].score():.{self.round_float}f}",
+        #                        logger)
+        # 
+        #     load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
+        #
+        #     if calibrate_model:
+        #         if loader_valid is None:
+        #             self.print_log('loader_valid is necessary for calibration.',
+        #                            logger)
+        #         else:
+        #             self.calibrate_model(loader_valid)
+        #
+        #     if predict_valid:
+        #         if loader_valid is None:
+        #             self.oof = self.predict(
+        #                 loader, test_time_augmentations=test_time_augmentations, verbose=verbose)
+        #         else:
+        #             self.oof = self.predict(
+        #                 loader_valid[0][1], test_time_augmentations=test_time_augmentations, verbose=verbose)
+        #     if predict_test:
+        #         self.pred = self.predict(
+        #             loader_test, test_time_augmentations=test_time_augmentations, verbose=verbose)
 
     def infer(self,
             # Essential
