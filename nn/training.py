@@ -676,7 +676,11 @@ class TorchTrainer:
         #     if verbose:
         #         self.print_log(f"[{self.serial}] Best score is {self.stopper[0].score():.{self.round_float}f}",
         #                        logger)
+<<<<<<< HEAD
         #
+=======
+        # 
+>>>>>>> f969cbe2b7a006891f6fa85e8c4d5c9952068160
         #     load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
         #
         #     if calibrate_model:

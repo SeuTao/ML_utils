@@ -1,7 +1,13 @@
 import neptune
+<<<<<<< HEAD
 # import tensorflow as tf
 import os
 # tf.compat.v1.disable_eager_execution()
+=======
+import tensorflow as tf
+import os
+tf.compat.v1.disable_eager_execution()
+>>>>>>> f969cbe2b7a006891f6fa85e8c4d5c9952068160
 # TODO: write new Logger class for TensorFlow v2
 
 class Logger(object):
