@@ -16,7 +16,6 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score, confusion_matrix, mean_squared_error
 from .preprocessing import DistTransformer
 
-
 class MetricTemplate:
     '''
     Custom metric template
@@ -119,7 +118,17 @@ class RMSE(MetricTemplate):
     Root mean square error
     '''
     def _test(self, target, approx):
-        return np.sqrt(mean_squared_error(target, approx))
+        return -np.sqrt(mean_squared_error(target, approx))
+
+import scipy.stats
+class R(MetricTemplate):
+    '''
+    Root mean square error
+    '''
+    def _test(self, target, approx):
+        # print(approx.shape)
+        # print(target.shape)
+        return scipy.stats.pearsonr(approx.reshape([-1]), target.reshape([-1]))[0]
 
 
 class AUC(MetricTemplate):
@@ -151,17 +160,24 @@ class Accuracy(MetricTemplate):
 
     def _test(self, target, approx):
         assert(len(target) == len(approx))
+
         target = np.asarray(target, dtype=int)
         approx = np.asarray(approx, dtype=float)
+
         if len(approx.shape) == 1:
             approx = approx
         elif approx.shape[1] == 1:
             approx = np.squeeze(approx)
         elif approx.shape[1] >= 2:
             approx = np.argmax(approx, axis=1)
-        approx = approx.round().astype(int)
-        return np.mean((target == approx).astype(int))
 
+        approx = approx.round().astype(int)
+
+        target = target.reshape([-1])
+        approx = approx.reshape([-1])
+        assert(target.shape == approx.shape)
+
+        return np.mean((target == approx).astype(int))
 
 class QWK(MetricTemplate):
     '''

@@ -12,7 +12,6 @@ from collections.abc import Iterable
 import numpy as np
 import pandas as pd
 
-
 def clean_value(x):
     if isinstance(x, str):
         if x.isnumeric():
@@ -25,7 +24,6 @@ def clean_value(x):
         return x
     else:
         return x
-
     
 class KumaNumpy:
     '''

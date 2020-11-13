@@ -5,7 +5,6 @@ https://github.com/fastai/imagenet-fast/blob/master/cifar10/fp16util.py
 import torch
 import torch.nn as nn
 
-
 class tofp16(nn.Module):
     def __init__(self):
         super(tofp16, self).__init__()
@@ -13,12 +12,10 @@ class tofp16(nn.Module):
     def forward(self, input):
         return input.half()
 
-
 def copy_in_params(net, params):
     net_params = list(net.parameters())
     for i in range(len(params)):
         net_params[i].data.copy_(params[i].data)
-
 
 def set_grad(params, params_with_grad):
 
@@ -26,7 +23,6 @@ def set_grad(params, params_with_grad):
         if param.grad is None:
             param.grad = torch.nn.Parameter(param.data.new().resize_(*param.data.size()))
         param.grad.data.copy_(param_w_grad.grad.data)
-
 
 def BN_convert_float(module):
     '''
@@ -41,7 +37,6 @@ def BN_convert_float(module):
     for child in module.children():
         BN_convert_float(child)
     return module
-
 
 def network_to_half(network):
     return nn.Sequential(tofp16(), BN_convert_float(network.half()))

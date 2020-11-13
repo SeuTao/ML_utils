@@ -4,14 +4,11 @@ from pathlib import Path
 from copy import copy
 import random
 from collections import Counter, defaultdict
-
 from PIL import Image
-
 import torch
 import torch.utils.data as D
 
 from ..common import KumaNumpy as kn
-
 
 def category2embedding(df, categorical_features, dim='auto'):
     df = kn.to_numpy(df)
@@ -24,9 +21,7 @@ def category2embedding(df, categorical_features, dim='auto'):
         raise ValueError(dim)
     return emb_dims
 
-
 class Numpy2Dataset:
-
     def __init__(self, task='binary'):
         self.task = 'binary'
     
