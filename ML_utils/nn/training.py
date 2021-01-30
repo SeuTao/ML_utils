@@ -272,7 +272,12 @@ class TorchTrainer:
             batches_done = len(loader) * self.current_epoch + batch_i
 
             X, y = inputs[0], inputs[1]
-            X = X.to(self.device)
+            if isinstance(X, dict):
+                for key in X:
+                    X[key] = X[key].to(self.device)
+            else:
+                X = X.to(self.device)
+
             y = y.to(self.device)
             if len(inputs) == 3:
                 z = inputs[2]
@@ -352,13 +357,17 @@ class TorchTrainer:
 
         with torch.no_grad():
             for tta_i in range(test_time_augmentations):
-                # print(tta_i)
-
                 approx = []
                 target = []
                 for inputs in loader:
                     X, y = inputs[0], inputs[1]
-                    X = X.to(self.device)
+
+                    if isinstance(X, dict):
+                        for key in X:
+                            X[key] = X[key].to(self.device)
+                    else:
+                        X = X.to(self.device)
+
                     y = y.to(self.device)
                     if len(inputs) == 3:
                         z = inputs[2]
@@ -375,7 +384,8 @@ class TorchTrainer:
                     elif len(inputs) == 2:
                         loss = self.criterion(_y, y)
 
-                    batch_weight = len(X) / batch_size
+
+                    batch_weight = len(y) / batch_size
                     loss_total += loss.item() / total_batch * batch_weight
                 approxs.append(torch.cat(approx).unsqueeze(0).cpu())
 
@@ -417,7 +427,14 @@ class TorchTrainer:
             with torch.no_grad():
                 for batch_i, inputs in enumerate(loader):
                     X = inputs[0]
-                    X = X.to(self.device)
+
+                    # X = X.to(self.device)
+                    if isinstance(X, dict):
+                        for key in X:
+                            X[key] = X[key].to(self.device)
+                    else:
+                        X = X.to(self.device)
+
                     _y = self.model(X)
                     if self.is_fp16:
                         _y = _y.float()
@@ -676,7 +693,7 @@ class TorchTrainer:
         #     if verbose:
         #         self.print_log(f"[{self.serial}] Best score is {self.stopper[0].score():.{self.round_float}f}",
         #                        logger)
-        # 
+        #
         #     load_snapshots_to_model(str(snapshot_path), self.model, self.optimizer)
         #
         #     if calibrate_model:

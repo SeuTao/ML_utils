@@ -1,5 +1,10 @@
 # ML Toolbox
 
+## Install
+```
+python setup install 
+```
+
 # Examples
 ## Train scikit-learn API model
 - CatBoost
